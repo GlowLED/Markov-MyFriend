@@ -1,6 +1,7 @@
 import tempfile
 import uuid
 from pathlib import Path
+from typing import Union
 
 import gradio as gr
 
@@ -14,6 +15,21 @@ GENERATION_HISTORY: list[str] = []
 TEMP_MODEL_FILES: dict[str, Path] = {}
 
 
+def read_file(file_obj) -> bytes:
+    if file_obj is None:
+        return None
+    if isinstance(file_obj, (str, Path)):
+        with open(file_obj, "rb") as f:
+            return f.read()
+    if hasattr(file_obj, "read"):
+        return file_obj.read()
+    if isinstance(file_obj, bytes):
+        return file_obj
+    if hasattr(file_obj, "__bytes__"):
+        return bytes(file_obj)
+    return file_obj
+
+
 def train_model(corpus_file, n: int, tokenize: str):
     global MODEL_CACHE, TEMP_MODEL_FILES
 
@@ -21,9 +37,19 @@ def train_model(corpus_file, n: int, tokenize: str):
         return "请上传语料库文件", "", None, None
 
     try:
-        temp_path = Path(tempfile.mktemp(suffix=Path(corpus_file).suffix))
+        file_data = read_file(corpus_file)
+        if file_data is None:
+            return "无法读取文件", "", None, None
+
+        temp_path = Path(
+            tempfile.mktemp(
+                suffix=Path(corpus_file).suffix
+                if hasattr(corpus_file, "suffix")
+                else ".txt"
+            )
+        )
         with open(temp_path, "wb") as f:
-            f.write(corpus_file)
+            f.write(file_data)
 
         corpus = load_corpus(str(temp_path))
         temp_path.unlink()
@@ -63,10 +89,7 @@ def train_model(corpus_file, n: int, tokenize: str):
         chain.save(str(model_path))
         TEMP_MODEL_FILES[file_id] = model_path
 
-        with open(model_path, "rb") as f:
-            model_data = f.read()
-
-        return stats, preview, gr.File(value=str(model_path)), model_data
+        return stats, preview, str(model_path), ""
 
     except Exception as e:
         return f"训练失败: {str(e)}", "", None, None
@@ -81,9 +104,15 @@ def generate_text(model_file, prefix: str, max_words: int, temperature: float):
         ) if GENERATION_HISTORY else ""
 
     try:
+        file_data = read_file(model_file)
+        if file_data is None:
+            return "无法读取模型文件", "\n".join(
+                GENERATION_HISTORY[-3:]
+            ) if GENERATION_HISTORY else ""
+
         temp_path = Path(tempfile.mktemp(suffix=".json"))
         with open(temp_path, "wb") as f:
-            f.write(model_file)
+            f.write(file_data)
 
         chain = MarkovChain.load(str(temp_path))
         temp_path.unlink()
@@ -115,9 +144,13 @@ def load_model_to_cache(model_file, model_name: str):
         return "请上传模型文件", list(MODEL_CACHE.keys())
 
     try:
+        file_data = read_file(model_file)
+        if file_data is None:
+            return "无法读取模型文件", list(MODEL_CACHE.keys())
+
         temp_path = Path(tempfile.mktemp(suffix=".json"))
         with open(temp_path, "wb") as f:
-            f.write(model_file)
+            f.write(file_data)
 
         chain = MarkovChain.load(str(temp_path))
         temp_path.unlink()
@@ -158,7 +191,7 @@ def clear_cache():
     global MODEL_CACHE, GENERATION_HISTORY
     MODEL_CACHE.clear()
     GENERATION_HISTORY.clear()
-    return "已清除所有已加载的模型和历史记录", [], list(MODEL_CACHE.keys())
+    return "已清除所有已加载的模型和历史记录", "", []
 
 
 def build_webui():
