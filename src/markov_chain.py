@@ -1,17 +1,26 @@
 import json
 import random
 from collections import defaultdict
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Callable, Dict, List, Optional, Tuple
+
+from tokenize import DEFAULT_TOKENIZER, detokenize, get_tokenizer
 
 
 class MarkovChain:
     BOS_TOKEN = "<bos>"
     EOS_TOKEN = "<eos>"
 
-    def __init__(self, n: int = 2):
+    def __init__(
+        self, n: int = 2, use_jieba: bool = True, tokenize_mode: str = "mixed"
+    ):
         if n < 1:
             raise ValueError("n must be at least 1")
         self.n = n
+        self.use_jieba = use_jieba
+        self.tokenize_mode = tokenize_mode
+        self.tokenizer: Callable[[str], List[str]] = get_tokenizer(
+            use_jieba, tokenize_mode
+        )
         self.transitions: Dict[str, Dict[str, int]] = defaultdict(
             lambda: defaultdict(int)
         )
@@ -21,7 +30,7 @@ class MarkovChain:
             raise ValueError("Corpus cannot be empty")
 
         for message in corpus:
-            words = message.split()
+            words = self.tokenizer(message)
             words = [self.BOS_TOKEN] * self.n + words + [self.EOS_TOKEN]
 
             for i in range(self.n, len(words)):
@@ -53,7 +62,7 @@ class MarkovChain:
         if start_prefix is None:
             prefix = tuple([self.BOS_TOKEN] * self.n)
         else:
-            words = start_prefix.split()
+            words = self.tokenizer(start_prefix)
             if len(words) >= self.n:
                 prefix = tuple(words[-self.n :])
             else:
@@ -88,13 +97,18 @@ class MarkovChain:
             prefix = tuple(result[-self.n :])
 
         result = [w for w in result if w != self.BOS_TOKEN]
-        return " ".join(result)
+        return detokenize(result)
 
     def save(self, path: str) -> None:
         transitions_serializable = {
             key: dict(value) for key, value in self.transitions.items()
         }
-        data = {"n": self.n, "transitions": transitions_serializable}
+        data = {
+            "n": self.n,
+            "use_jieba": self.use_jieba,
+            "tokenize_mode": self.tokenize_mode,
+            "transitions": transitions_serializable,
+        }
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
 
@@ -103,6 +117,10 @@ class MarkovChain:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
 
-        chain = cls(n=data["n"])
+        chain = cls(
+            n=data["n"],
+            use_jieba=data.get("use_jieba", True),
+            tokenize_mode=data.get("tokenize_mode", "mixed"),
+        )
         chain.transitions = {k: dict(v) for k, v in data["transitions"].items()}
         return chain

@@ -1,6 +1,5 @@
 import argparse
 import sys
-from pathlib import Path
 
 from src.markov_chain import MarkovChain
 from src.corpus_loader import load_corpus
@@ -10,9 +9,15 @@ def cmd_train(args):
     corpus = load_corpus(args.input)
     print(f"Loaded {len(corpus)} messages from {args.input}")
 
-    chain = MarkovChain(n=args.n)
+    chain = MarkovChain(
+        n=args.n,
+        use_jieba=not args.no_jieba,
+        tokenize_mode=args.tokenize_mode,
+    )
     chain.train(corpus)
-    print(f"Trained model with n={args.n}")
+    print(
+        f"Trained model with n={args.n}, use_jieba={not args.no_jieba}, mode={args.tokenize_mode}"
+    )
 
     chain.save(args.output)
     print(f"Model saved to {args.output}")
@@ -22,7 +27,8 @@ def cmd_generate(args):
     chain = MarkovChain.load(args.model)
 
     text = chain.generate(
-        start_prefix=args.prefix if args.prefix else None, max_words=args.max_words
+        start_prefix=args.prefix if args.prefix else None,
+        max_words=args.max_words,
     )
     print(text)
 
@@ -58,6 +64,17 @@ def main():
     train_parser.add_argument("-o", "--output", required=True, help="模型输出路径")
     train_parser.add_argument(
         "-n", "--n", type=int, default=2, help="马尔可夫链阶数 (默认: 2)"
+    )
+    train_parser.add_argument(
+        "--no-jieba",
+        action="store_true",
+        help="禁用jieba分词，使用空格分词",
+    )
+    train_parser.add_argument(
+        "--tokenize-mode",
+        choices=["mixed", "chinese"],
+        default="mixed",
+        help="分词模式: mixed=中英文混合, chinese=纯中文 (默认: mixed)",
     )
 
     gen_parser = subparsers.add_parser("generate", help="生成句子")
