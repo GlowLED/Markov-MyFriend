@@ -12,6 +12,7 @@ build/
 # Virtual environments
 .venv/
 venv/
+.env
 
 # IDE
 .idea/
@@ -27,8 +28,14 @@ htmlcov/
 # Project specific
 *.json
 !pyproject.toml
-test_model.json
 *.pkl
+uv.lock
 
 # uv
 .ruff_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# mypy
+.mypy_cache/
