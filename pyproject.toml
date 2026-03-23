@@ -5,6 +5,7 @@ description = "N阶马尔可夫链语言生成模型"
 requires-python = ">=3.11"
 dependencies = [
     "jieba>=0.42",
+    "gradio>=4.0",
 ]
 
 [project.scripts]
