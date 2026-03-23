@@ -14,15 +14,18 @@ def cmd_train(args):
     corpus = load_corpus(args.input)
     print(f"Loaded {len(corpus)} messages from {args.input}")
 
+    use_jieba = not args.no_jieba
+    tokenize_mode = args.tokenize_mode
+    if args.no_jieba and tokenize_mode == "mixed":
+        tokenize_mode = "char"
+
     chain = MarkovChain(
         n=args.n,
-        use_jieba=not args.no_jieba,
-        tokenize_mode=args.tokenize_mode,
+        use_jieba=use_jieba,
+        tokenize_mode=tokenize_mode,
     )
     chain.train(corpus)
-    print(
-        f"Trained model with n={args.n}, use_jieba={not args.no_jieba}, mode={args.tokenize_mode}"
-    )
+    print(f"Trained model with n={args.n}, use_jieba={use_jieba}, mode={tokenize_mode}")
 
     chain.save(args.output)
     print(f"Model saved to {args.output}")
@@ -76,13 +79,13 @@ def main():
     train_parser.add_argument(
         "--no-jieba",
         action="store_true",
-        help="禁用jieba分词，使用空格分词",
+        help="禁用jieba分词，每个字符作为一个词",
     )
     train_parser.add_argument(
         "--tokenize-mode",
-        choices=["mixed", "chinese"],
+        choices=["mixed", "chinese", "char"],
         default="mixed",
-        help="分词模式: mixed=中英文混合, chinese=纯中文 (默认: mixed)",
+        help="分词模式: mixed=中英文混合, chinese=纯中文, char=字符级 (默认: mixed)",
     )
 
     gen_parser = subparsers.add_parser("generate", help="生成句子")

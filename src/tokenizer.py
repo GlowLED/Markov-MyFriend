@@ -33,21 +33,12 @@ def tokenize_mixed(text: str) -> List[str]:
     return tokens
 
 
+def tokenize_char(text: str) -> List[str]:
+    return list(text)
+
+
 def detokenize(tokens: List[str]) -> str:
-    result = []
-    for i, token in enumerate(tokens):
-        if i > 0:
-            prev = tokens[i - 1]
-            if re.match(r"[\u4e00-\u9fff]", token) and re.match(
-                r"[\u4e00-\u9fff]", prev
-            ):
-                result.append(" ")
-            elif re.match(r"[a-zA-Z]", token) and re.match(r"[\u4e00-\u9fff]", prev):
-                result.append(" ")
-            elif re.match(r"[\u4e00-\u9fff]", prev) and re.match(r"[a-zA-Z]", token):
-                result.append(" ")
-        result.append(token)
-    return "".join(result)
+    return "".join(tokens)
 
 
 DEFAULT_TOKENIZER = tokenize_mixed
@@ -57,11 +48,15 @@ def get_tokenizer(
     use_jieba: bool = True, mode: str = "mixed"
 ) -> Callable[[str], List[str]]:
     if not use_jieba:
+        if mode == "char":
+            return tokenize_char
         return lambda text: text.split()
 
     if mode == "chinese":
         return tokenize_chinese
     elif mode == "mixed":
         return tokenize_mixed
+    elif mode == "char":
+        return tokenize_char
     else:
         return lambda text: text.split()

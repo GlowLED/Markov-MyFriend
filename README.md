@@ -167,16 +167,22 @@ JSON数组，每项为字符串：
 
 ## 分词说明
 
-程序使用jieba分词处理中文，支持中英文混合语料。
+程序支持多种分词模式。
 
-**示例**：输入 `"我想学Python编程"`
-分词结果：`["我", "想学", "Python", "编程"]`
+**示例**：
+
+| 模式 | 输入 | 分词结果 |
+|------|------|----------|
+| mixed | `"我想学Python"` | `["我", "想学", "Python"]` |
+| chinese | `"我想学Python"` | `["我", "想学", "Python"]` |
+| char | `"我想学Python"` | `["我", "想", "学", "P", "y", "t", "h", "o", "n"]` |
 
 ### 分词模式
 
-- `--tokenize-mode mixed` (默认): 中英文混合分词
-- `--tokenize-mode chinese`: 纯中文分词
-- `--no-jieba`: 禁用jieba，按空格分词
+- `--tokenize-mode mixed` (默认): 中英文混合分词，英文保留为独立词
+- `--tokenize-mode chinese`: 纯中文分词，使用jieba
+- `--tokenize-mode char`: 字符级分词，每个字符作为一个词
+- `--no-jieba`: 等同于 `--tokenize-mode char`，禁用jieba
 
 ## 模型格式
 
