@@ -1,27 +1,21 @@
 import json
-import math
 import random
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Tuple
 
-from src.tokenizer import DEFAULT_TOKENIZER, detokenize, get_tokenizer
+from src.tokenizer import detokenize, get_tokenizer
 
 
 class MarkovChain:
     BOS_TOKEN = "<bos>"
     EOS_TOKEN = "<eos>"
 
-    def __init__(
-        self, n: int = 2, use_jieba: bool = True, tokenize_mode: str = "mixed"
-    ):
+    def __init__(self, n: int = 2, tokenize: str = "word"):
         if n < 1:
             raise ValueError("n must be at least 1")
         self.n = n
-        self.use_jieba = use_jieba
-        self.tokenize_mode = tokenize_mode
-        self.tokenizer: Callable[[str], List[str]] = get_tokenizer(
-            use_jieba, tokenize_mode
-        )
+        self.tokenize = tokenize
+        self.tokenizer: Callable[[str], List[str]] = get_tokenizer(tokenize)
         self.transitions: Dict[str, Dict[str, int]] = defaultdict(
             lambda: defaultdict(int)
         )
@@ -125,8 +119,7 @@ class MarkovChain:
         }
         data = {
             "n": self.n,
-            "use_jieba": self.use_jieba,
-            "tokenize_mode": self.tokenize_mode,
+            "tokenize": self.tokenize,
             "transitions": transitions_serializable,
         }
         with open(path, "w", encoding="utf-8") as f:
@@ -139,8 +132,7 @@ class MarkovChain:
 
         chain = cls(
             n=data["n"],
-            use_jieba=data.get("use_jieba", True),
-            tokenize_mode=data.get("tokenize_mode", "mixed"),
+            tokenize=data.get("tokenize", "word"),
         )
         chain.transitions = {k: dict(v) for k, v in data["transitions"].items()}
         return chain

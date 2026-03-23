@@ -23,8 +23,7 @@ markov train -i corpus.json -o model.json -n 2
 | `-i, --input` | 是 | - | 语料库文件路径 |
 | `-o, --output` | 是 | - | 模型输出文件路径 |
 | `-n, --n` | 否 | 2 | 马尔可夫链阶数 |
-| `--no-jieba` | 否 | False | 禁用jieba分词，直接按字符分词 |
-| `--tokenize-mode` | 否 | mixed | 分词模式：`mixed` 或 `chinese` |
+| `--tokenize` | 否 | word | 分词模式：`word` 或 `char` |
 
 ### generate - 生成句子
 
@@ -100,8 +99,7 @@ print(chain.generate(start_prefix="今天", max_words=20, temperature=0.5))
 | 参数 | 默认值 | 说明 |
 |------|--------|------|
 | `n` | 2 | 马尔可夫链阶数 |
-| `use_jieba` | True | 是否使用jieba分词 |
-| `tokenize_mode` | "mixed" | 分词模式："mixed" 或 "chinese" |
+| `tokenize` | "word" | 分词模式："word" 或 "char" |
 
 ### generate() 方法参数
 
@@ -169,22 +167,17 @@ JSON数组，每项为字符串：
 
 ## 分词说明
 
-程序支持多种分词模式。
+程序支持两种分词模式。
 
-**示例**：
-
-| 模式 | 输入 | 分词结果 |
-|------|------|----------|
-| mixed | `"我想学Python"` | `["我", "想学", "Python"]` |
-| chinese | `"我想学Python"` | `["我", "想学", "Python"]` |
-| char | `"我想学Python"` | `["我", "想", "学", "P", "y", "t", "h", "o", "n"]` |
+| 模式 | 中文处理 | 英文处理 | 示例 |
+|------|----------|----------|------|
+| `word` (默认) | jieba分词 | 保留为独立词 | `"我想学Python"` → `["我", "想学", "Python"]` |
+| `char` | 按字符分 | 按字符分 | `"我想学Python"` → `["我", "想", "学", "P", "y", "t", "h", "o", "n"]` |
 
 ### 分词模式
 
-- `--tokenize-mode mixed` (默认): 中英文混合分词，英文保留为独立词
-- `--tokenize-mode chinese`: 纯中文分词，使用jieba
-- `--tokenize-mode char`: 字符级分词，每个字符作为一个词
-- `--no-jieba`: 等同于 `--tokenize-mode char`，禁用jieba
+- `--tokenize word` (默认): 按词分词，中文使用jieba，英文保留完整单词
+- `--tokenize char`: 按字符分词，所有字符都分开
 
 ## 模型格式
 
@@ -193,8 +186,7 @@ JSON数组，每项为字符串：
 ```json
 {
   "n": 2,
-  "use_jieba": true,
-  "tokenize_mode": "mixed",
+  "tokenize": "word",
   "transitions": {
     "[\"<bos>\", \"<bos>\"]": {
       "今天天气": 1,
@@ -236,7 +228,7 @@ Web UI 将在 `http://localhost:7860` 启动。
 |------|------|
 | 语料库文件 | 上传 json/jsonl/csv/txt 格式的语料库 |
 | n阶数 | 滑动条选择 1-5 |
-| 分词模式 | 选择 mixed/chinese/char |
+| 分词模式 | 选择 word/char |
 | 分词预览 | 显示语料库前3条的分词效果 |
 | 模型统计 | 显示转移状态数、词汇量等 |
 | 下载模型 | 训练完成后可下载模型文件 |

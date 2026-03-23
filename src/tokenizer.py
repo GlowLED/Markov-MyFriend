@@ -4,11 +4,7 @@ from typing import Callable, List
 import jieba
 
 
-def tokenize_chinese(text: str) -> List[str]:
-    return jieba.lcut(text, cut_all=False)
-
-
-def tokenize_mixed(text: str) -> List[str]:
+def tokenize_word(text: str) -> List[str]:
     pattern = re.compile(
         r"[a-zA-Z]+|[\u4e00-\u9fff]+|[0-9.]+|[^\sa-zA-Z\u4e00-\u9fff0-9.]+"
     )
@@ -41,22 +37,10 @@ def detokenize(tokens: List[str]) -> str:
     return "".join(tokens)
 
 
-DEFAULT_TOKENIZER = tokenize_mixed
-
-
-def get_tokenizer(
-    use_jieba: bool = True, mode: str = "mixed"
-) -> Callable[[str], List[str]]:
-    if not use_jieba:
-        if mode == "char":
-            return tokenize_char
-        return lambda text: text.split()
-
-    if mode == "chinese":
-        return tokenize_chinese
-    elif mode == "mixed":
-        return tokenize_mixed
+def get_tokenizer(mode: str = "word") -> Callable[[str], List[str]]:
+    if mode == "word":
+        return tokenize_word
     elif mode == "char":
         return tokenize_char
     else:
-        return lambda text: text.split()
+        return tokenize_word

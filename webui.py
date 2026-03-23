@@ -1,5 +1,5 @@
 import tempfile
-import threading
+import uuid
 from pathlib import Path
 
 import gradio as gr
@@ -11,21 +11,11 @@ from src.tokenizer import get_tokenizer
 
 MODEL_CACHE: dict[str, MarkovChain] = {}
 GENERATION_HISTORY: list[str] = []
+TEMP_MODEL_FILES: dict[str, Path] = {}
 
 
-def get_tokenizer_preview(text: str, use_jieba: bool, mode: str) -> str:
-    tokenizer = get_tokenizer(use_jieba, mode)
-    tokens = tokenizer(text)
-    return f"原文: {text}\n分词: {tokens}"
-
-
-def train_model(
-    corpus_file,
-    n: int,
-    tokenize_mode: str,
-    use_jieba: bool,
-):
-    global MODEL_CACHE
+def train_model(corpus_file, n: int, tokenize: str):
+    global MODEL_CACHE, TEMP_MODEL_FILES
 
     if corpus_file is None:
         return "请上传语料库文件", "", None, None
@@ -42,13 +32,13 @@ def train_model(
             return "语料库为空", "", None, None
 
         preview_texts = []
-        test_tokenizer = get_tokenizer(use_jieba, tokenize_mode)
+        test_tokenizer = get_tokenizer(tokenize)
         for msg in corpus[:3]:
             tokens = test_tokenizer(msg)
             preview_texts.append(f"原文: {msg}\n分词: {' '.join(tokens)}")
         preview = "\n\n".join(preview_texts)
 
-        chain = MarkovChain(n=n, use_jieba=use_jieba, tokenize_mode=tokenize_mode)
+        chain = MarkovChain(n=n, tokenize=tokenize)
         chain.train(corpus)
 
         transitions_count = len(chain.transitions)
@@ -66,32 +56,24 @@ def train_model(
 - 转移状态数: {transitions_count}
 - 词汇量: {vocab_size}
 - n阶数: {n}
-- 分词模式: {tokenize_mode}"""
+- 分词模式: {tokenize}"""
 
-        model_path = Path(tempfile.mktemp(suffix=".json"))
+        file_id = str(uuid.uuid4())[:8]
+        model_path = Path(tempfile.gettempdir()) / f"markov_model_{file_id}.json"
         chain.save(str(model_path))
+        TEMP_MODEL_FILES[file_id] = model_path
+
         with open(model_path, "rb") as f:
             model_data = f.read()
-        model_path.unlink()
 
-        return (
-            stats,
-            preview,
-            gr.File(value=model_data, filename="model.json"),
-            model_data,
-        )
+        return stats, preview, gr.File(value=str(model_path)), model_data
 
     except Exception as e:
         return f"训练失败: {str(e)}", "", None, None
 
 
-def generate_text(
-    model_file,
-    prefix: str,
-    max_words: int,
-    temperature: float,
-):
-    global GENERATION_HISTORY, MODEL_CACHE
+def generate_text(model_file, prefix: str, max_words: int, temperature: float):
+    global GENERATION_HISTORY
 
     if model_file is None:
         return "请上传模型文件", "\n".join(
@@ -150,10 +132,7 @@ def load_model_to_cache(model_file, model_name: str):
 
 
 def chat_generate(
-    selected_model: str,
-    user_input: str,
-    max_words: int,
-    temperature: float,
+    selected_model: str, user_input: str, max_words: int, temperature: float
 ):
     global MODEL_CACHE
 
@@ -198,22 +177,12 @@ def build_webui():
                         n = gr.Slider(
                             minimum=1, maximum=5, step=1, value=2, label="n阶数"
                         )
-                        tokenize_mode = gr.Dropdown(
-                            choices=["mixed", "chinese", "char"],
-                            value="mixed",
+                        tokenize = gr.Dropdown(
+                            choices=["word", "char"],
+                            value="word",
                             label="分词模式",
+                            info="word: 按词分词(中文用jieba)；char: 按字符分词",
                         )
-                        use_jieba = gr.Checkbox(label="使用jieba分词", value=True)
-
-                        def update_jieba_checkbox(mode):
-                            return gr.Checkbox.update(value=(mode != "char"))
-
-                        tokenize_mode.change(
-                            fn=update_jieba_checkbox,
-                            inputs=[tokenize_mode],
-                            outputs=[use_jieba],
-                        )
-
                         train_btn = gr.Button("开始训练", variant="primary")
 
                     with gr.Column():
@@ -228,7 +197,7 @@ def build_webui():
 
                 train_btn.click(
                     fn=train_model,
-                    inputs=[corpus_file, n, tokenize_mode, use_jieba],
+                    inputs=[corpus_file, n, tokenize],
                     outputs=[stats, preview, model_download, train_output],
                 )
 
