@@ -3,7 +3,7 @@ import random
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Tuple
 
-from tokenize import DEFAULT_TOKENIZER, detokenize, get_tokenizer
+from src.tokenizer import DEFAULT_TOKENIZER, detokenize, get_tokenizer
 
 
 class MarkovChain:
