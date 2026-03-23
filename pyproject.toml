@@ -1,0 +1,13 @@
+[project]
+name = "markov-myfriend"
+version = "0.1.0"
+description = "N阶马尔可夫链语言生成模型"
+requires-python = ">=3.11"
+dependencies = []
+
+[project.scripts]
+markov = "src.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
