@@ -1,4 +1,5 @@
 import json
+import math
 import random
 from collections import defaultdict
 from typing import Callable, Dict, List, Optional, Tuple
@@ -47,11 +48,30 @@ class MarkovChain:
     def _key_to_prefix(self, key: str) -> Tuple[str, ...]:
         return tuple(json.loads(key))
 
+    def _sample_with_temperature(
+        self, words: List[str], weights: List[int], temperature: float
+    ) -> str:
+        if temperature <= 0:
+            raise ValueError("temperature must be positive")
+
+        if temperature == 1.0:
+            return random.choices(words, weights=weights, k=1)[0]
+
+        if len(words) == 1:
+            return words[0]
+
+        exp_weights = [w ** (1.0 / temperature) for w in weights]
+        sum_exp_weights = sum(exp_weights)
+        normalized = [w / sum_exp_weights for w in exp_weights]
+
+        return random.choices(words, weights=normalized, k=1)[0]
+
     def generate(
         self,
         start_prefix: Optional[str] = None,
         max_words: int = 50,
         eos_token: Optional[str] = None,
+        temperature: float = 1.0,
     ) -> str:
         if not self.transitions:
             raise ValueError("Model has not been trained or loaded")
@@ -88,7 +108,7 @@ class MarkovChain:
 
             words_list = list(next_words.keys())
             weights = list(next_words.values())
-            chosen = random.choices(words_list, weights=weights, k=1)[0]
+            chosen = self._sample_with_temperature(words_list, weights, temperature)
 
             if chosen == eos_token:
                 break

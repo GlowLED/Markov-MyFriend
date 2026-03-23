@@ -34,6 +34,7 @@ def cmd_generate(args):
     text = chain.generate(
         start_prefix=args.prefix if args.prefix else None,
         max_words=args.max_words,
+        temperature=args.temperature,
     )
     print(text)
 
@@ -56,7 +57,9 @@ def cmd_interactive(args):
             break
 
         prefix = user_input if user_input.strip() else None
-        text = chain.generate(start_prefix=prefix, max_words=args.max_words)
+        text = chain.generate(
+            start_prefix=prefix, max_words=args.max_words, temperature=args.temperature
+        )
         print(text)
 
 
@@ -88,11 +91,25 @@ def main():
     gen_parser.add_argument(
         "-w", "--max-words", type=int, default=50, help="最大词数 (默认: 50)"
     )
+    gen_parser.add_argument(
+        "-t",
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="采样温度，控制随机性 (默认: 1.0，>1更随机，<1更确定)",
+    )
 
     inter_parser = subparsers.add_parser("interactive", help="交互模式")
     inter_parser.add_argument("-m", "--model", required=True, help="模型文件路径")
     inter_parser.add_argument(
         "-w", "--max-words", type=int, default=50, help="最大词数 (默认: 50)"
+    )
+    inter_parser.add_argument(
+        "-t",
+        "--temperature",
+        type=float,
+        default=1.0,
+        help="采样温度，控制随机性 (默认: 1.0，>1更随机，<1更确定)",
     )
 
     args = parser.parse_args()
