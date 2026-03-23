@@ -1,7 +1,6 @@
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Union
 
 import gradio as gr
 
@@ -10,12 +9,10 @@ from src.corpus_loader import load_corpus
 from src.tokenizer import get_tokenizer
 
 
-MODEL_CACHE: dict[str, MarkovChain] = {}
 GENERATION_HISTORY: list[str] = []
-TEMP_MODEL_FILES: dict[str, Path] = {}
 
 
-def read_file(file_obj) -> bytes:
+def read_file(file_obj):
     if file_obj is None:
         return None
     if isinstance(file_obj, (str, Path)):
@@ -31,8 +28,6 @@ def read_file(file_obj) -> bytes:
 
 
 def train_model(corpus_file, n: int, tokenize: str):
-    global MODEL_CACHE, TEMP_MODEL_FILES
-
     if corpus_file is None:
         return "请上传语料库文件", "", None, None
 
@@ -41,13 +36,8 @@ def train_model(corpus_file, n: int, tokenize: str):
         if file_data is None:
             return "无法读取文件", "", None, None
 
-        temp_path = Path(
-            tempfile.mktemp(
-                suffix=Path(corpus_file).suffix
-                if hasattr(corpus_file, "suffix")
-                else ".txt"
-            )
-        )
+        suffix = Path(corpus_file).suffix if hasattr(corpus_file, "suffix") else ".txt"
+        temp_path = Path(tempfile.mktemp(suffix=suffix))
         with open(temp_path, "wb") as f:
             f.write(file_data)
 
@@ -84,10 +74,10 @@ def train_model(corpus_file, n: int, tokenize: str):
 - n阶数: {n}
 - 分词模式: {tokenize}"""
 
-        file_id = str(uuid.uuid4())[:8]
-        model_path = Path(tempfile.gettempdir()) / f"markov_model_{file_id}.json"
+        model_path = (
+            Path(tempfile.gettempdir()) / f"markov_model_{uuid.uuid4().hex[:8]}.json"
+        )
         chain.save(str(model_path))
-        TEMP_MODEL_FILES[file_id] = model_path
 
         return stats, preview, str(model_path), ""
 
@@ -137,65 +127,8 @@ def generate_text(model_file, prefix: str, max_words: int, temperature: float):
         ) if GENERATION_HISTORY else ""
 
 
-def load_model_to_cache(model_file, model_name: str):
-    global MODEL_CACHE
-
-    if model_file is None:
-        return "请上传模型文件", list(MODEL_CACHE.keys())
-
-    try:
-        file_data = read_file(model_file)
-        if file_data is None:
-            return "无法读取模型文件", list(MODEL_CACHE.keys())
-
-        temp_path = Path(tempfile.mktemp(suffix=".json"))
-        with open(temp_path, "wb") as f:
-            f.write(file_data)
-
-        chain = MarkovChain.load(str(temp_path))
-        temp_path.unlink()
-
-        name = model_name if model_name.strip() else f"model_{len(MODEL_CACHE) + 1}"
-        MODEL_CACHE[name] = chain
-
-        return f"已加载模型: {name}", list(MODEL_CACHE.keys())
-
-    except Exception as e:
-        return f"加载失败: {str(e)}", list(MODEL_CACHE.keys())
-
-
-def chat_generate(
-    selected_model: str, user_input: str, max_words: int, temperature: float
-):
-    global MODEL_CACHE
-
-    if not selected_model or selected_model not in MODEL_CACHE:
-        return "请先加载并选择模型", ""
-
-    if not user_input.strip():
-        return "", ""
-
-    try:
-        chain = MODEL_CACHE[selected_model]
-        result = chain.generate(
-            start_prefix=user_input,
-            max_words=max_words,
-            temperature=temperature,
-        )
-        return result, ""
-    except Exception as e:
-        return f"生成失败: {str(e)}", ""
-
-
-def clear_cache():
-    global MODEL_CACHE, GENERATION_HISTORY
-    MODEL_CACHE.clear()
-    GENERATION_HISTORY.clear()
-    return "已清除所有已加载的模型和历史记录", "", []
-
-
 def build_webui():
-    with gr.Blocks(title="Markov-MyFriend", theme=gr.themes.Soft()) as demo:
+    with gr.Blocks(title="Markov-MyFriend") as demo:
         gr.Markdown("# Markov-MyFriend\n> 将你的朋友压缩成Markov模型")
         gr.Markdown("---")
 
@@ -265,67 +198,6 @@ def build_webui():
                     fn=generate_text,
                     inputs=[gen_model_file, prefix, max_words, temperature],
                     outputs=[gen_result, history],
-                )
-
-            with gr.TabItem("对话模式"):
-                with gr.Row():
-                    with gr.Column():
-                        gr.Markdown("### 加载模型")
-                        chat_model_file = gr.File(
-                            label="模型文件",
-                            file_types=[".json"],
-                        )
-                        model_name = gr.Textbox(
-                            label="模型名称",
-                            placeholder="输入模型名称（用于切换）",
-                        )
-                        load_btn = gr.Button("加载到缓存", variant="primary")
-                        model_list = gr.Dropdown(
-                            label="已加载的模型",
-                            choices=list(MODEL_CACHE.keys()),
-                            allow_custom_value=False,
-                        )
-                        clear_btn = gr.Button("清除所有模型", variant="stop")
-
-                        gr.Markdown("### 生成设置")
-                        chat_max_words = gr.Slider(
-                            minimum=10, maximum=200, step=10, value=50, label="最大词数"
-                        )
-                        chat_temperature = gr.Slider(
-                            minimum=0.1, maximum=3.0, step=0.1, value=1.0, label="温度"
-                        )
-
-                    with gr.Column():
-                        gr.Markdown("### 对话")
-                        user_input = gr.Textbox(
-                            label="输入",
-                            placeholder="输入你的消息...",
-                            lines=2,
-                        )
-                        chat_btn = gr.Button("生成回复", variant="primary")
-                        chat_result = gr.Textbox(
-                            label="回复", lines=3, interactive=False
-                        )
-                        chat_status = gr.Textbox(
-                            label="状态", lines=1, interactive=False
-                        )
-
-                load_btn.click(
-                    fn=load_model_to_cache,
-                    inputs=[chat_model_file, model_name],
-                    outputs=[chat_status, model_list],
-                )
-
-                clear_btn.click(
-                    fn=clear_cache,
-                    inputs=[],
-                    outputs=[chat_status, chat_result, model_list],
-                )
-
-                chat_btn.click(
-                    fn=chat_generate,
-                    inputs=[model_list, user_input, chat_max_words, chat_temperature],
-                    outputs=[chat_result, chat_status],
                 )
 
     return demo
