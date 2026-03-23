@@ -23,7 +23,7 @@ markov train -i corpus.json -o model.json -n 2
 | `-i, --input` | 是 | - | 语料库文件路径 |
 | `-o, --output` | 是 | - | 模型输出文件路径 |
 | `-n, --n` | 否 | 2 | 马尔可夫链阶数 |
-| `--no-jieba` | 否 | False | 禁用jieba分词，按空格分词 |
+| `--no-jieba` | 否 | False | 禁用jieba分词，直接按字符分词 |
 | `--tokenize-mode` | 否 | mixed | 分词模式：`mixed` 或 `chinese` |
 
 ### generate - 生成句子
